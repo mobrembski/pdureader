@@ -161,7 +161,7 @@ void convertMessage(sms_entry_t* entry) {
   entry->message_length = tmp[bufPos];
   bufPos += 1;
 
-  switch(entry->encoding_scheme) {
+  switch(entry->encoding_scheme & 0x0F) {
     case 0: // 7Bit message
       gsmDecode7bit(tmp + bufPos, entry->message_ucs, entry->message_length);
       break;
