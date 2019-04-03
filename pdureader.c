@@ -31,67 +31,69 @@ typedef struct sms_entry {
 
 int gsmString2Bytes(const char* pSrc, unsigned char* pDst, int nSrcLength)
 {
-     for(int i=0; i<nSrcLength; i+=2) {
-         if(*pSrc>='0' && *pSrc<='9') {
-             *pDst = (*pSrc - '0') << 4;
-         } else{
-             *pDst = (*pSrc - 'A' + 10) << 4;
-         }
-
-         pSrc++;
-
-         if(*pSrc>='0' && *pSrc<='9') {
-             *pDst |= *pSrc - '0';
-         } else {
-             *pDst |= *pSrc - 'A' + 10;
-         }
-         pSrc++;
-         pDst++;
+  size_t i;
+  for(i = 0; i < nSrcLength; i += 2) {
+     if(*pSrc >= '0' && *pSrc <= '9') {
+         *pDst = (*pSrc - '0') << 4;
+     } else{
+         *pDst = (*pSrc - 'A' + 10) << 4;
      }
 
-     return nSrcLength / 2;
+     pSrc++;
+
+     if(*pSrc >= '0' && *pSrc <= '9') {
+         *pDst |= *pSrc - '0';
+     } else {
+         *pDst |= *pSrc - 'A' + 10;
+     }
+     pSrc++;
+     pDst++;
+  }
+
+  return nSrcLength / 2;
 }
 
-int gsmDecode7bit(const unsigned char* pSrc, wchar_t* pDst, int nSrcLength)
-{
-     int nSrc = 0;
-     int nDst = 0;
-     int nByte = 0;
-     unsigned char nLeft = 0;
+int gsmDecode7bit(const unsigned char* pSrc, wchar_t* pDst, int nSrcLength) {
+  int nSrc = 0;
+  int nDst = 0;
+  int nByte = 0;
+  unsigned char nLeft = 0;
 
-     while(nSrc<nSrcLength) {
-      *pDst = ((*pSrc << nByte) | nLeft) & 0x7f;
+  while(nSrc < nSrcLength) {
+    *pDst = ((*pSrc << nByte) | nLeft) & 0x7f;
+    if (*pDst < 32 ) *pDst = 127;
+    nLeft = *pSrc >> (7-nByte);
+
+    pDst++;
+    nDst++;
+
+    nByte++;
+
+    if(nByte == 7) {
+      *pDst = nLeft;
+
       if (*pDst < 32 ) *pDst = 127;
-      nLeft = *pSrc >> (7-nByte);
 
-      pDst++;
-      nDst++;
+       pDst++;
+       nDst++;
 
-      nByte++;
+       nByte = 0;
+       nLeft = 0;
+    }
 
-      if(nByte == 7) {
-        *pDst = nLeft;
-      if (*pDst < 32 ) *pDst = 127;
+    pSrc++;
+    nSrc++;
+  }
 
-         pDst++;
-         nDst++;
+  *pDst = 0;
 
-         nByte = 0;
-         nLeft = 0;
-      }
-
-      pSrc++;
-      nSrc++;
-     }
-
-     *pDst = 0;
-
-     return nDst;
+  return nDst;
 }
 
 void swapByteArray(unsigned char* array, size_t length) {
   unsigned char tmp;
-  for (size_t i = 0 ; i < length; i++) {
+  size_t i;
+  for (i = 0 ; i < length; i++) {
     tmp = array[i];
     array[i] = (tmp >> 4) | (tmp << 4);
   }
@@ -99,10 +101,11 @@ void swapByteArray(unsigned char* array, size_t length) {
 
 void semiOctetToWString(unsigned char* array, wchar_t* outStr, size_t length) {
   unsigned char tmp;
+  size_t i, k;
 
   outStr[0]='+';
 
-  for (size_t k = 0,i = 1; k < length * 2; k++,i+=2) {
+  for (k = 0, i = 1; k < length * 2; k++, i += 2) {
     outStr[i] = 0;
     outStr[i] = (array[k] >> 4) + 48;
     tmp = (array[k] & 0x0F);
@@ -112,9 +115,10 @@ void semiOctetToWString(unsigned char* array, wchar_t* outStr, size_t length) {
 
 void convertTimestamp(unsigned char *timestampBuf, sms_entry_t* entry) {
   unsigned char tmp[TIMESTAMP_STR_SIZE];
+  size_t i;
 
   swapByteArray(timestampBuf, TIMESTAMP_BUF_SIZE);
-  for(int i = 0; i < TIMESTAMP_BUF_SIZE; i++) {
+  for(i = 0; i < TIMESTAMP_BUF_SIZE; i++) {
     tmp[i] = (( timestampBuf[i] >> 4)*10) + ((timestampBuf[i] & 0x0F));
   }
 
@@ -127,6 +131,7 @@ void convertMessage(sms_entry_t* entry) {
   unsigned char tmp[SMS_MSG_MAX_SIZE] = {0};
   unsigned char tmpChar;
   unsigned char bufPos = 2;
+  size_t i, k;
 
   if (entry->dbId < 0 || entry->status < 0) return;
   gsmString2Bytes(entry->message_raw, tmp, strlen(entry->message_raw));
@@ -169,7 +174,7 @@ void convertMessage(sms_entry_t* entry) {
       memcpy(entry->message_ucs, tmp + bufPos, entry->message_length);
       break;
     case 8: // UCS-2 message
-      for (int k = 0,i = 0; i < entry->message_length; k++,i+=2) {
+      for (k = 0, i = 0; i < entry->message_length; k++, i += 2) {
         wchar_t tmpWChar = 0;
         tmpWChar = (tmp[bufPos+i] << 8) | tmp[bufPos+i+1];
          	entry->message_ucs[k] = tmpWChar < 20 ? L' ' : tmpWChar;
@@ -231,7 +236,7 @@ const char* translateMessageStatus(const unsigned char numericStatus) {
 }
 
 int main(int argc, char** argv) {
-  size_t  			entries_count;
+  size_t  			i, entries_count;
   //const char	  *fileName = argc > 1 ? argv[1] : NULL;
   FILE    			*infile = stdin;
   sms_entry_t		*parsed_entries;
@@ -290,7 +295,7 @@ int main(int argc, char** argv) {
   parsed_entries = parse_modem_response(infile, &entries_count);
 
   setlocale(LC_ALL,  "C.UTF-8");
-  for (size_t i = 0; i < entries_count; i++) {
+  for (i = 0; i < entries_count; i++) {
     sms_entry_t* entry = &parsed_entries[i];
     if (entry->status > 0) {
       pduEntries++;
@@ -313,4 +318,5 @@ int main(int argc, char** argv) {
   } else if (pduEntries == 0 && entries_count > 0) {
     fwprintf(stderr, L"No correct PDU entries found!\n");
   }
+  return 0;
 }
