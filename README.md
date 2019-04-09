@@ -2,7 +2,7 @@
 Reader and parser of 2/3/4G modems SMS storage.
 Application reads an standard ETSI AT+CMGL AT command output.
 
-This program was designed to read ORNO WE-504 on embedded
+This program was designed to read Huawei modems SMS inbox on embedded
 systems - such as Tomato, OpenWRT etc.
 
 Application is very simple, just build it by typing
