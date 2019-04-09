@@ -236,19 +236,21 @@ const char* translateMessageStatus(const unsigned char numericStatus) {
 }
 
 int main(int argc, char** argv) {
-  size_t  			i, entries_count;
+  size_t  			entries_count, i;
   //const char	  *fileName = argc > 1 ? argv[1] : NULL;
   FILE    			*infile = stdin;
+  FILE    			*outfile = stdout;
   sms_entry_t		*parsed_entries;
   char          pduEntries = 0;
 
   int c;
-  const char    * short_opt = "hsf:";
+  const char    * short_opt = "hsf:w:";
   struct option   long_opt[] =
   {
    {"help",          no_argument,       NULL, 'h'},
    {"stdin",          no_argument,       NULL, 'h'},
    {"file",          required_argument, NULL, 'f'},
+   {"out",          required_argument, NULL, 'w'},
    {NULL,            0,                 NULL, 0  }
   };
 
@@ -271,10 +273,19 @@ int main(int argc, char** argv) {
       }
       break;
 
+      case 'w':
+      outfile = fopen(optarg, "w");
+      if (outfile == NULL) {
+        fprintf(stderr, "ERR Cannot open output file %s!\n", optarg);
+        return 1;
+      }
+      break;
+
       case 'h':
       printf("Usage: \
       \n\t-h, --help  Print this help \
       \n\t-f, --file  FILE: Get input from file instead of stdin \
+      \n\t-w, --out   FILE: Use output file instead of stdout \
       \n\t-s, --stdin FILE: Get input from stdin (default)\n");
       return 0;
       break;
@@ -300,7 +311,7 @@ int main(int argc, char** argv) {
     if (entry->status > 0) {
       pduEntries++;
       convertMessage(entry);
-      wprintf(L"ID: %u [%s][%s][%ls]: %ls\n",
+      fwprintf(outfile, L"ID: %u [%s][%s][%ls]: %ls\n",
         entry->dbId,
         translateMessageStatus(entry->status),
         entry->timestamp,
