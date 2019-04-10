@@ -29,6 +29,10 @@ typedef struct sms_entry {
   unsigned char encoding_scheme;
 } sms_entry_t;
 
+typedef enum LOCALE_SUPPORT {
+  LOCALE_SUPPORTED, LOCALE_NOT_SUPPORTED
+} locale_support;
+
 int gsmString2Bytes(const char* pSrc, unsigned char* pDst, int nSrcLength)
 {
   size_t i;
@@ -127,7 +131,7 @@ void convertTimestamp(unsigned char *timestampBuf, sms_entry_t* entry) {
     (unsigned)tmp[4], (unsigned)tmp[5], (unsigned)tmp[6]);
 }
 
-void convertMessage(sms_entry_t* entry) {
+void convertMessage(sms_entry_t* entry, locale_support localeSupport) {
   unsigned char tmp[SMS_MSG_MAX_SIZE] = {0};
   unsigned char tmpChar;
   unsigned char bufPos = 2;
@@ -174,12 +178,17 @@ void convertMessage(sms_entry_t* entry) {
       memcpy(entry->message_ucs, tmp + bufPos, entry->message_length);
       break;
     case 8: // UCS-2 message
-      for (k = 0, i = 0; i < entry->message_length; k++, i += 2) {
-        wchar_t tmpWChar = 0;
-        tmpWChar = (tmp[bufPos+i] << 8) | tmp[bufPos+i+1];
-         	entry->message_ucs[k] = tmpWChar < 20 ? L' ' : tmpWChar;
-      }
-      entry->message_ucs[entry->message_length] = L'\0';
+        for (k = 0, i = 0; i < entry->message_length; k++, i += 2) {
+          wchar_t tmpWChar = 0;
+          tmpWChar = (tmp[bufPos+i] << 8) | tmp[bufPos+i+1];
+          if (localeSupport == LOCALE_SUPPORTED) {
+            entry->message_ucs[k] = tmpWChar;
+          } else {
+            entry->message_ucs[k] =
+              (tmpWChar < 20 || tmpWChar > 125) ? L' ' : tmpWChar;
+          }
+        }
+        entry->message_ucs[entry->message_length] = L'\0';
       break;
     default:
       swprintf(entry->message_ucs, 32,
@@ -242,6 +251,7 @@ int main(int argc, char** argv) {
   FILE    			*outfile = stdout;
   sms_entry_t		*parsed_entries;
   char          pduEntries = 0;
+  locale_support  ucsSupport = LOCALE_NOT_SUPPORTED;
 
   int c;
   const char    * short_opt = "hsf:w:";
@@ -305,12 +315,14 @@ int main(int argc, char** argv) {
 
   parsed_entries = parse_modem_response(infile, &entries_count);
 
-  setlocale(LC_ALL,  "C.UTF-8");
+  if (setlocale(LC_ALL,  "C.UTF-8") != NULL) {
+    ucsSupport = LOCALE_SUPPORTED;
+  }
   for (i = 0; i < entries_count; i++) {
     sms_entry_t* entry = &parsed_entries[i];
     if (entry->status > 0) {
       pduEntries++;
-      convertMessage(entry);
+      convertMessage(entry, ucsSupport);
       fwprintf(outfile, L"ID: %u [%s][%s][%ls]: %ls\n",
         entry->dbId,
         translateMessageStatus(entry->status),
