@@ -63,7 +63,7 @@ int gsmDecode7bit(const unsigned char* pSrc, wchar_t* pDst, int nSrcLength) {
   int nByte = 0;
   unsigned char nLeft = 0;
 
-  while(nSrc < nSrcLength) {
+  while(nDst < nSrcLength) {
     *pDst = ((*pSrc << nByte) | nLeft) & 0x7f;
     if (*pDst < 32 ) *pDst = 127;
     nLeft = *pSrc >> (7-nByte);
