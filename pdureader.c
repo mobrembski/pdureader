@@ -33,7 +33,7 @@ typedef enum LOCALE_SUPPORT {
   LOCALE_SUPPORTED, LOCALE_NOT_SUPPORTED
 } locale_support;
 
-int gsmString2Bytes(const char* pSrc, unsigned char* pDst, int nSrcLength)
+int gsmString2Bytes(const char* pSrc, unsigned char* pDst, size_t nSrcLength)
 {
   size_t i;
   for(i = 0; i < nSrcLength; i += 2) {
